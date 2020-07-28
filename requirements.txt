@@ -17,3 +17,4 @@ autoplotter
 pypiwin32
 graphviz
 xgboost
+Flask
