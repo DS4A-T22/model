@@ -16,3 +16,4 @@ plotly==4.9.0
 autoplotter
 pypiwin32
 graphviz
+xgboost
