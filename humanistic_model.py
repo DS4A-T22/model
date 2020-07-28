@@ -159,5 +159,8 @@ class HumanisticModel():
 
     def dump_models(self):
         pickle.dump(self.rforest, open('human_rforest.pkl','wb'))
+        print('\n> Random forest classifier dumped into ./human_rfores.pkl.')
         pickle.dump(self.xgboost, open('human_xgboost.pkl','wb'))
+        print('\n> XGBoost classifier dumped into ./human_xgboost.pkl.')
+        
 
