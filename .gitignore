@@ -4,4 +4,3 @@
 *.xlsx
 __pycache__/
 *.pyc
-*.pkl
