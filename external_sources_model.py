@@ -48,23 +48,25 @@ class ExternalSourcesModel():
         emergencies.loc[emergencies['description_service']=='ATENCION MEDICA PRIORITARIA', 'description_service'] = 1
         emergencies.loc[emergencies['description_service']=='CONSULTA MEDICO GENERAL NO PROGRAMADA', 'description_service'] = 0
         emergencies['description_service'] = emergencies['description_service'].astype(int)
-        emergencies['regional_health_provider'] = emergencies['regional_health_provider'].astype('category')
-        emergencies['code_service'] = emergencies['code_service'].astype('category')
+
         emergencies['diagnosis_code'] = emergencies['diagnosis_code'].astype('category')
         emergencies['registration_date']=pd.to_datetime(emergencies['registration_date'])
 
         #Pathologics:
         pathologics.rename(columns={'diagnosis_code': 'pathologics_diagnosis_code'}, inplace=True)
-        # pathologics.drop(columns=['end_date'], axis=1, inplace=True)
         pathologics['pathologics_diagnosis_code'] = pathologics['pathologics_diagnosis_code'].astype('category')
-        pathologics['health_provider'] = pathologics['health_provider'].astype('category')
 
         #Hospitalizations:
         hospitalizations.rename(columns={'diagnosis_code': 'hospitalizations_diagnosis_code'}, inplace=True)
         hospitalizations.drop(columns=['gender', 'age'], axis=1, inplace=True)
         hospitalizations['in_date']=pd.to_datetime(hospitalizations['in_date'])
-        hospitalizations['out_date']=pd.to_datetime(hospitalizations['out_date'])    
-        
+        hospitalizations['out_date']=pd.to_datetime(hospitalizations['out_date'])
+
+        pathologics.drop(columns=['end_date'], axis=1, inplace=True)
+        emergencies.drop(columns=['code_service'], axis=1, inplace=True)
+
+
+
         #Merge:
         merged_adherence = adherence_change_analysis.merge(emergencies, how='left', on='id_patient')
         merged_adherence = merged_adherence.merge(pathologics, how='left', on='id_patient')
@@ -72,8 +74,9 @@ class ExternalSourcesModel():
         
         #Reorder the dataset:
         cols= list(merged_adherence.columns.values);
-        new_oder= [0, 1, 9, 14, 15, 21, 2,3,4,5,6,7,8,10,11,12,13,16,17,18,19,20,22];
+        new_oder= [0, 1, 9, 13, 14, 20, 2,3,4,5,6,7,8,10,11,12,15,16,17,18,19,21];
         merged_adherence_1=merged_adherence[merged_adherence.columns[new_oder]];
+
         #Sort the dataset by dates:
         merged_adherence_1.sort_values(by=['id_patient',
                                        'survey_date',
@@ -137,17 +140,48 @@ class ExternalSourcesModel():
         hosp_patho_emer_adherence_2['days_since_last_hospitalization'] = hosp_patho_emer_adherence_2['days_since_last_hospitalization'].fillna(0)
 
         #Drop 'category' column:
-        hosp_patho_emer_adherence_2.drop(columns=['category', 'qualitative_result_change'], axis=1, inplace=True)
+
+        hosp_patho_emer_adherence_2.drop(columns=['category', 'qualitative_result_change','health_provider','regional_health_provider'], axis=1, inplace=True)
+
+        #from all the 'pathologics_diagnosis_code' use the 7 most common as 1 and the rest as 0,
+        #being 1 more important than 0.
+        hosp_patho_emer_adherence_2['pathologics_diagnosis_code']= np.where(
+        (hosp_patho_emer_adherence_2['pathologics_diagnosis_code'] == 'J459') |
+        (hosp_patho_emer_adherence_2['pathologics_diagnosis_code'] == 'J46X') |
+        (hosp_patho_emer_adherence_2['pathologics_diagnosis_code'] == 'J189') |
+        (hosp_patho_emer_adherence_2['pathologics_diagnosis_code'] == 'J441') |
+        (hosp_patho_emer_adherence_2['pathologics_diagnosis_code'] == 'J159') |
+        (hosp_patho_emer_adherence_2['pathologics_diagnosis_code'] == 'N390') |
+        (hosp_patho_emer_adherence_2['pathologics_diagnosis_code'] == 'J450'), 1,
+        hosp_patho_emer_adherence_2['pathologics_diagnosis_code'])
+        hosp_patho_emer_adherence_2['pathologics_diagnosis_code']= np.where(
+        (hosp_patho_emer_adherence_2['pathologics_diagnosis_code'] != 1), 0,
+        hosp_patho_emer_adherence_2['pathologics_diagnosis_code'])
+
+        #from all the 'hospitalizations_diagnosis_code' use the 7 most common as 1 and the rest as 0,
+        #being 1 more important than 0.
+        hosp_patho_emer_adherence_2['hospitalizations_diagnosis_code']= np.where(
+        (hosp_patho_emer_adherence_2['hospitalizations_diagnosis_code'] == 'J450') |
+        (hosp_patho_emer_adherence_2['hospitalizations_diagnosis_code'] == 'J459') |
+        (hosp_patho_emer_adherence_2['hospitalizations_diagnosis_code'] == 'JL509') |
+        (hosp_patho_emer_adherence_2['hospitalizations_diagnosis_code'] == 'I10X') |
+        (hosp_patho_emer_adherence_2['hospitalizations_diagnosis_code'] == 'J304') |
+        (hosp_patho_emer_adherence_2['hospitalizations_diagnosis_code'] == 'L501') |
+        (hosp_patho_emer_adherence_2['hospitalizations_diagnosis_code'] == 'L500'), 1,
+        hosp_patho_emer_adherence_2['hospitalizations_diagnosis_code'])
+        hosp_patho_emer_adherence_2['hospitalizations_diagnosis_code']= np.where(
+        (hosp_patho_emer_adherence_2['hospitalizations_diagnosis_code'] != 1), 0,
+        hosp_patho_emer_adherence_2['hospitalizations_diagnosis_code'])
+
+        hosp_patho_emer_adherence_2['hospitalizations_diagnosis_code'] = hosp_patho_emer_adherence_2['hospitalizations_diagnosis_code'].astype(int)
+        hosp_patho_emer_adherence_2['pathologics_diagnosis_code'] = hosp_patho_emer_adherence_2['pathologics_diagnosis_code'].astype(int)
 
 
-        # Get a copy of the previous dataset and encode the features:
+
+        # Get a copy of the previous dataset to encode the features
+
         ho_pa_em_ad_modelable = hosp_patho_emer_adherence_2.copy()
-        ho_pa_em_ad_modelable['regional_health_provider'] = ho_pa_em_ad_modelable['regional_health_provider'].cat.codes
         ho_pa_em_ad_modelable['diagnosis_code'] = ho_pa_em_ad_modelable['diagnosis_code'].cat.codes
-        ho_pa_em_ad_modelable['health_provider'] = ho_pa_em_ad_modelable['health_provider'].cat.codes
-        ho_pa_em_ad_modelable['pathologics_diagnosis_code'] = ho_pa_em_ad_modelable['pathologics_diagnosis_code'].cat.codes
-        ho_pa_em_ad_modelable['hospitalizations_diagnosis_code'] = ho_pa_em_ad_modelable['hospitalizations_diagnosis_code'].cat.codes
-        ho_pa_em_ad_modelable['code_service'] = ho_pa_em_ad_modelable['code_service'].cat.codes
 
         return ho_pa_em_ad_modelable
     
@@ -163,7 +197,7 @@ class ExternalSourcesModel():
                                                                                  'out_date',
                                                                                  'survey_date'])]
             
-            print('> Training Random Forest classifier...')
+            print('> Training Random Forest classifier... update')
             self.rforest = RandomForestClassifier(n_estimators=100, max_depth=8, random_state=0)
             self.rforest.fit(self.data[covariates], self.data['qualitative_result'])
             y_pred_rf = self.rforest.predict(self.data[covariates])
